@@ -1,4 +1,30 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Octa Byte Capital
+
+Portfolio dashboard built for the Octa Byte AI case study using Next.js, React, TypeScript and Tailwind CSS.
+
+## Run locally
+
+```bash
+npm install
+npm run dev
+```
+
+Open http://localhost:3000.
+
+## Implementation notes
+
+- The portfolio snapshot is kept in `src/app/page.tsx` and mirrors the supplied 29-holding report across six sectors.
+- `/api/market` requests CMP from Yahoo Finance every 10 seconds and returns the saved snapshot if the unofficial endpoint is unavailable.
+- Google Finance does not provide a supported public API. P/E and latest earnings are represented by the supplied report snapshot, with the limitation shown in the UI instead of pretending the values are live.
+- The client refreshes prices every 15 seconds and calculates present value, gain/loss, portfolio weight and sector summaries from the same rows.
+- No API keys are exposed in browser code. Public finance endpoints can change or rate-limit requests, so production use would add a provider adapter, cache, and scheduled server-side updates.
+
+## Checks
+
+```bash
+npm run lint
+npm run build
+```
 
 ## Getting Started
 
