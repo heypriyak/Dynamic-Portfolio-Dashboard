@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 type Holding = { symbol: string; yahooSymbol?: string; name: string; sector: string; exchange: "NSE" | "BSE"; purchasePrice: number; quantity: number; cmp: number | null; pe: number | null; earnings: number | null };
 const startingHoldings: Holding[] = [
@@ -44,18 +44,23 @@ export default function Home() {
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("Using the latest saved market snapshot");
-  async function refreshPrices() {
+  const refreshPrices = useCallback(async () => {
+    if (loading) return;
     setLoading(true);
+    setMessage("Refreshing market prices...");
     try {
       const response = await fetch("/api/market", { cache: "no-store" });
       if (!response.ok) throw new Error("Market data unavailable");
-      const prices: Record<string, number> = await response.json();
-      setHoldings((current) => current.map((holding) => ({ ...holding, cmp: prices[holding.symbol] || holding.cmp })));
+      const prices: Record<string, number | null> = await response.json();
+      setHoldings((current) => current.map((holding) => {
+        const key = holding.yahooSymbol?.replace(".NS", "") || holding.symbol;
+        return { ...holding, cmp: prices[key] ?? holding.cmp };
+      }));
       setUpdatedAt(new Date()); setMessage("Prices refreshed from Yahoo Finance when available");
-    } catch { setMessage("Live source unavailable; showing the saved snapshot"); }
+    } catch { setUpdatedAt(new Date()); setMessage("Live source unavailable; showing the saved snapshot"); }
     finally { setLoading(false); }
-  }
-  useEffect(() => { const timer = window.setInterval(refreshPrices, 15000); return () => window.clearInterval(timer); }, []);
+  }, [loading]);
+  useEffect(() => { const timer = window.setInterval(refreshPrices, 15000); return () => window.clearInterval(timer); }, [refreshPrices]);
   const rows = useMemo(() => holdings.map((holding) => { const investment = holding.purchasePrice * holding.quantity; const presentValue = holding.cmp === null ? null : holding.cmp * holding.quantity; return { ...holding, investment, presentValue, gainLoss: presentValue === null ? null : presentValue - investment }; }), [holdings]);
   const totals = useMemo(() => rows.reduce((summary, row) => ({ investment: summary.investment + row.investment, presentValue: summary.presentValue + (row.presentValue || 0), gainLoss: summary.gainLoss + (row.gainLoss || 0) }), { investment: 0, presentValue: 0, gainLoss: 0 }), [rows]);
   const sectors = useMemo(() => Object.entries(rows.reduce<Record<string, typeof rows>>((groups, row) => { (groups[row.sector] ||= []).push(row); return groups; }, {})).map(([name, sectorRows]) => ({ name, investment: sectorRows.reduce((sum, row) => sum + row.investment, 0), gainLoss: sectorRows.reduce((sum, row) => sum + (row.gainLoss || 0), 0) })), [rows]);
